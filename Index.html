@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gato y Ratón</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; background: #1a1a2e; color: white;
+    font-family: Helvetica, Arial, sans-serif; height: 100%;
+    overflow-x: hidden;
+  }
+  #app { display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 20px; }
+  .pantalla { display: none; width: 100%; max-width: 480px; flex-direction: column; align-items: center; padding: 0 16px; }
+  .pantalla.activa { display: flex; }
+
+  h1.titulo { font-size: 22px; font-weight: bold; margin: 24px 0 6px; text-align: center; }
+  .subt { font-size: 13px; color: #ffcc00; margin: 4px 0; text-align: center; }
+  .reglas { font-size: 13px; color: #cccccc; text-align: center; line-height: 1.5; margin: 8px 0; white-space: pre-line; }
+  hr.sep { width: 100%; border: none; border-top: 1px solid #444466; margin: 10px 0; }
+
+  .btn {
+    font-size: 16px; padding: 14px; border: none; border-radius: 6px;
+    width: 100%; margin: 5px 0; color: white; cursor: pointer; font-weight: 500;
+  }
+  .btn-gato { background: #2255CC; }
+  .btn-raton { background: #CC2222; }
+  .btn-volver { background: #555577; }
+  .btn-jugar { background: #ffcc00; color: #1a1a2e; font-size: 18px; font-weight: bold; }
+  .btn-menu { background: #ffcc00; color: #1a1a2e; }
+  .btn-nuevo { background: #28a745; color: white; }
+  .btn-dif1 { background: #4caf50; }
+  .btn-dif2 { background: #ff9800; }
+  .btn-dif3 { background: #f44336; }
+  .btn-dif4 { background: #9c27b0; }
+
+  .fila2 { display: flex; gap: 8px; width: 100%; margin: 14px 0; }
+  .fila2 .btn { margin: 0; }
+  .fila2 .col1 { flex: 1; }
+  .fila2 .col2 { flex: 2; }
+
+  #lbl-turno { width: 100%; text-align: center; padding: 8px 4px; font-size: 15px; min-height: 20px; }
+  #lbl-modo { font-size: 12px; color: #aaaaaa; }
+
+  canvas { touch-action: none; }
+
+  .barra { display: flex; width: 100%; gap: 8px; padding: 8px 0; align-items: center; }
+  .barra .btn { margin: 0; }
+  .barra .izq { flex: 1; }
+  .barra .der { flex: 1; text-align: right; }
+
+  #pantalla-juego { max-width: none; }
+  #contenedor-canvas { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- MENÚ A -->
+  <div class="pantalla activa" id="pantalla-a">
+    <h1 class="titulo">GATO Y RATÓN</h1>
+    <div class="subt">── Reglas ──</div>
+    <div class="reglas">Solo se usan las casillas oscuras.
+GATOS [G]: empiezan arriba, solo bajan.
+RATÓN [R]: empieza abajo, mueve en diagonal.
+Gana el RATÓN si llega a fila 0
+  o los gatos no pueden moverse.
+Ganan los GATOS si el ratón no puede moverse.
+Empieza siempre el RATÓN.</div>
+    <hr class="sep">
+    <div class="subt" style="margin-bottom:8px;">Modo de juego:</div>
+    <button class="btn btn-gato" onclick="irB()">1 jugador</button>
+    <button class="btn btn-raton" onclick="iniciar(false)">2 jugadores&nbsp; (pasa el móvil)</button>
+  </div>
+
+  <!-- MENÚ B -->
+  <div class="pantalla" id="pantalla-b">
+    <h1 class="titulo" style="margin-top:20px;">1 JUGADOR</h1>
+    <div class="subt">¿Qué quieres mover?</div>
+    <button class="btn btn-raton" id="btn-r" onclick="selPieza('raton')">Yo muevo el RATÓN&nbsp; [R]</button>
+    <button class="btn btn-gato" id="btn-g" onclick="selPieza('gatos')">Yo muevo los GATOS&nbsp; [G]</button>
+
+    <div class="subt" style="margin-top:10px;">Dificultad de la IA:</div>
+    <button class="btn btn-dif1" id="btn-dif-1" onclick="selDificultad(1)">1 – Fácil</button>
+    <button class="btn btn-dif2" id="btn-dif-2" onclick="selDificultad(2)">2 – Normal</button>
+    <button class="btn btn-dif3" id="btn-dif-3" onclick="selDificultad(3)">3 – Difícil</button>
+    <button class="btn btn-dif4" id="btn-dif-4" onclick="selDificultad(4)">4 – Experto</button>
+
+    <div class="fila2">
+      <button class="btn btn-volver col1" onclick="irA()">← Volver</button>
+      <button class="btn btn-jugar col2" onclick="iniciar(true)">▶ JUGAR</button>
+    </div>
+  </div>
+
+  <!-- JUEGO -->
+  <div class="pantalla" id="pantalla-juego">
+    <div id="lbl-turno"></div>
+    <div id="contenedor-canvas">
+      <canvas id="canvas"></canvas>
+    </div>
+    <div class="barra" style="max-width:480px; padding:6px 16px;">
+      <button class="btn btn-menu izq" onclick="volverMenu()">Menú</button>
+      <div class="der" id="lbl-modo"></div>
+    </div>
+    <button class="btn btn-nuevo" id="btn-nuevo" style="display:none; max-width:480px; margin:6px 16px;" onclick="volverMenu()">Jugar de nuevo</button>
+  </div>
+
+</div>
+
+<script>
+// ── Colores ─────────────────────────────────────────
+const C_CLARA = "#F0D9B5", C_OSCURA = "#B58863", C_VERDE = "#AAD900",
+      C_AMARILLO = "#FFEE44", C_GATO = "#2255CC", C_RATON = "#CC2222";
+
+const GATOS_INICIO = [[0,1],[0,3],[0,5],[0,7]];
+const RATON_INICIO = [7,4];
+const INF = Infinity;
+
+function esOscura(f,c){ return (f+c)%2 === 1; }
+function keyPos(p){ return p[0]+","+p[1]; }
+function eqPos(a,b){ return a[0]===b[0] && a[1]===b[1]; }
+function incluye(lista, p){ return lista.some(x => eqPos(x,p)); }
+function indexOfPos(lista, p){ return lista.findIndex(x => eqPos(x,p)); }
+
+// ── IA / Minimax ────────────────────────────────────
+function heuristica(gatos, raton){
+  const [rf, rc] = raton;
+  const distMedia = gatos.reduce((s,g)=> s+Math.abs(g[0]-rf)+Math.abs(g[1]-rc), 0)/4;
+  const filas = gatos.map(g=>g[0]);
+  const dispersion = Math.max(...filas) - Math.min(...filas);
+  const peligroEscape = (7-rf)*2;
+  const avanceRelativo = rf - Math.max(...filas);
+  return -distMedia*2 - dispersion*3 - peligroEscape + avanceRelativo*4;
+}
+
+function movsRaton(raton, gatos){
+  const [f,c] = raton;
+  const deltas = [[-1,-1],[-1,1],[1,-1],[1,1]];
+  const res = [];
+  for(const [df,dc] of deltas){
+    const nf=f+df, nc=c+dc;
+    if(nf>=0&&nf<=7&&nc>=0&&nc<=7&&esOscura(nf,nc)&&!incluye(gatos,[nf,nc])) res.push([nf,nc]);
+  }
+  return res;
+}
+
+function movsGato(pos, gatos, raton){
+  const [f,c] = pos;
+  const deltas = [[1,-1],[1,1]];
+  const res = [];
+  for(const [df,dc] of deltas){
+    const nf=f+df, nc=c+dc;
+    if(nf>=0&&nf<=7&&nc>=0&&nc<=7&&esOscura(nf,nc)&&!incluye(gatos,[nf,nc])&&!eqPos([nf,nc],raton)) res.push([nf,nc]);
+  }
+  return res;
+}
+
+function todosMovsGatos(gatos, raton){
+  const movs = [];
+  gatos.forEach((g,i)=>{
+    for(const dest of movsGato(g, gatos, raton)) movs.push([i, dest]);
+  });
+  return movs;
+}
+
+function esFin(gatos, raton){
+  const rf = raton[0];
+  if(rf === 0) return ["raton"];
+  if(rf < Math.min(...gatos.map(g=>g[0]))) return ["raton"];
+  if(todosMovsGatos(gatos, raton).length === 0) return ["raton"];
+  if(movsRaton(raton, gatos).length === 0) return ["gatos"];
+  return [null];
+}
+
+function minimax(gatos, raton, prof, alpha, beta, turnoGatos){
+  const [gan] = esFin(gatos, raton);
+  if(gan) return [gan==="gatos" ? 10000+prof : -10000-prof, null];
+  if(prof === 0) return [heuristica(gatos, raton), null];
+
+  if(turnoGatos){
+    let mejor = -INF, mov = null;
+    const movs = todosMovsGatos(gatos, raton).slice().sort((a,b)=>{
+      const da = Math.abs(gatos[a[0]][0]-raton[0])+Math.abs(gatos[a[0]][1]-raton[1]);
+      const db = Math.abs(gatos[b[0]][0]-raton[0])+Math.abs(gatos[b[0]][1]-raton[1]);
+      return da-db;
+    });
+    for(const [i, dest] of movs){
+      const g2 = gatos.map(x=>x.slice());
+      g2[i] = dest;
+      const [v] = minimax(g2, raton, prof-1, alpha, beta, false);
+      if(v > mejor){ mejor = v; mov = [i, dest]; }
+      alpha = Math.max(alpha, v);
+      if(beta <= alpha) break;
+    }
+    return [mejor, mov];
+  } else {
+    let mejor = INF, mov = null;
+    for(const dest of movsRaton(raton, gatos)){
+      const [v] = minimax(gatos, dest, prof-1, alpha, beta, true);
+      if(v < mejor){ mejor = v; mov = dest; }
+      beta = Math.min(beta, v);
+      if(beta <= alpha) break;
+    }
+    return [mejor, mov];
+  }
+}
+
+function randChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function iaGatos(gatos, raton, dif){
+  const movs = todosMovsGatos(gatos, raton);
+  if(movs.length === 0) return null;
+  if(dif === 1) return randChoice(movs);
+  if(dif === 2){
+    const [rf, rc] = raton;
+    let mejor = null, mejorPunt = INF;
+    for(const m of movs){
+      const g2 = gatos.map(x=>x.slice()); g2[m[0]] = m[1];
+      const filas = g2.map(g=>g[0]);
+      const punt = Math.abs(m[1][0]-rf) + Math.abs(m[1][1]-rc)*2 + (Math.max(...filas)-Math.min(...filas))*3;
+      if(punt < mejorPunt){ mejorPunt = punt; mejor = m; }
+    }
+    return mejor;
+  }
+  const [, mov] = minimax(gatos, raton, dif===3?3:6, -INF, INF, true);
+  return mov;
+}
+
+function iaRaton(gatos, raton, dif){
+  const movs = movsRaton(raton, gatos);
+  if(movs.length === 0) return null;
+  if(dif === 1) return randChoice(movs);
+  if(dif === 2){
+    let mejor = movs[0];
+    for(const m of movs) if(m[0] < mejor[0]) mejor = m;
+    return mejor;
+  }
+  const [, mov] = minimax(gatos, raton, dif===3?3:5, -INF, INF, false);
+  return mov;
+}
+
+// ── Estado del juego ─────────────────────────────────
+let modoIA = true;
+let piezaJugador = "raton";
+let dificultad = 2;
+let turno = "raton";
+let gatos = GATOS_INICIO.map(p=>p.slice());
+let raton = RATON_INICIO.slice();
+let sel = null;       // {tipo:"raton"/"gato", pos:[f,c]}
+let validos = [];
+let juegoActivo = false;
+
+let cs = 0; // tamaño de casilla
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+function calcularTamano(){
+  const maxAncho = Math.min(window.innerWidth - 8, 480);
+  cs = Math.floor(maxAncho / 8);
+  const boardPx = cs * 8;
+  canvas.width = boardPx;
+  canvas.height = boardPx;
+  canvas.style.width = boardPx + "px";
+  canvas.style.height = boardPx + "px";
+}
+
+// ── Navegación ───────────────────────────────────────
+function ocultarTodo(){
+  document.querySelectorAll('.pantalla').forEach(p=>p.classList.remove('activa'));
+}
+function irA(){ ocultarTodo(); document.getElementById('pantalla-a').classList.add('activa'); }
+function irB(){ ocultarTodo(); document.getElementById('pantalla-b').classList.add('activa'); }
+function irJuego(){ ocultarTodo(); document.getElementById('pantalla-juego').classList.add('activa'); }
+
+function selPieza(pieza){
+  piezaJugador = pieza;
+  document.getElementById('btn-r').textContent = (pieza==="raton"?"✓  ":"") + "Yo muevo el RATÓN  [R]";
+  document.getElementById('btn-g').textContent = (pieza==="gatos"?"✓  ":"") + "Yo muevo los GATOS  [G]";
+}
+
+function selDificultad(val){
+  dificultad = val;
+  const txts = {1:"1 – Fácil",2:"2 – Normal",3:"3 – Difícil",4:"4 – Experto"};
+  for(const v of [1,2,3,4]){
+    document.getElementById('btn-dif-'+v).textContent = (v===val?"✓  ":"") + txts[v];
+  }
+}
+
+function volverMenu(){
+  juegoActivo = false;
+  document.getElementById('btn-nuevo').style.display = 'none';
+  irA();
+}
+
+// ── Iniciar partida ──────────────────────────────────
+function iniciar(esIA){
+  modoIA = esIA;
+  gatos = GATOS_INICIO.map(p=>p.slice());
+  raton = RATON_INICIO.slice();
+  turno = "raton";
+  sel = null;
+  validos = [];
+  juegoActivo = true;
+
+  if(esIA){
+    const difTxt = {1:"Fácil",2:"Normal",3:"Difícil",4:"Experto"};
+    const piezaTxt = piezaJugador === "raton" ? "Ratón" : "Gatos";
+    document.getElementById('lbl-modo').textContent = `1J · ${piezaTxt} · ${difTxt[dificultad]}`;
+  } else {
+    document.getElementById('lbl-modo').textContent = "2 jugadores";
+  }
+
+  calcularTamano();
+  irJuego();
+  dibujar();
+  actualizarLabel();
+
+  if(esIA && piezaJugador === "gatos"){
+    setTimeout(iaMueveRaton, 600);
+  }
+}
+
+// ── Dibujo ────────────────────────────────────────────
+function dibujar(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let f=0; f<8; f++){
+    for(let c=0; c<8; c++){
+      let color;
+      if(!esOscura(f,c)) color = C_CLARA;
+      else if(incluye(validos, [f,c])) color = C_VERDE;
+      else color = C_OSCURA;
+      ctx.fillStyle = color;
+      ctx.fillRect(c*cs, f*cs, cs, cs);
+    }
+  }
+  for(const pos of gatos){
+    dibujarPieza(pos, C_GATO, "G", sel && sel.tipo==="gato" && eqPos(sel.pos,pos));
+  }
+  dibujarPieza(raton, C_RATON, "R", sel && sel.tipo==="raton" && eqPos(sel.pos,raton));
+}
+
+function dibujarPieza(pos, color, letra, seleccionada){
+  const [f,c] = pos;
+  const cx = c*cs + cs/2, cy = f*cs + cs/2;
+  const r = cs/2 - 8;
+  if(seleccionada){
+    ctx.beginPath();
+    ctx.arc(cx, cy, r+4, 0, Math.PI*2);
+    ctx.fillStyle = C_AMARILLO;
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "white";
+  ctx.stroke();
+  ctx.fillStyle = "white";
+  ctx.font = `bold ${Math.max(12, Math.floor(cs/5))}px Helvetica, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(letra, cx, cy);
+}
+
+function actualizarLabel(){
+  const lbl = document.getElementById('lbl-turno');
+  if(turno === "raton"){
+    if(modoIA && piezaJugador === "gatos"){
+      lbl.style.color = "#ff8888"; lbl.textContent = "La IA mueve el RATÓN...";
+    } else {
+      lbl.style.color = "#ff8888"; lbl.textContent = "Turno del RATÓN  [R]";
+    }
+  } else {
+    if(modoIA && piezaJugador === "raton"){
+      lbl.style.color = "#8888ff"; lbl.textContent = "La IA mueve los GATOS...";
+    } else {
+      lbl.style.color = "#8888ff"; lbl.textContent = "Turno de los GATOS  [G]";
+    }
+  }
+}
+
+// ── Interacción ───────────────────────────────────────
+function turnoEsIA(){
+  if(!modoIA) return false;
+  if(turno === "raton" && piezaJugador === "gatos") return true;
+  if(turno === "gatos" && piezaJugador === "raton") return true;
+  return false;
+}
+
+function manejarClick(clientX, clientY){
+  if(!juegoActivo || turnoEsIA()) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left, y = clientY - rect.top;
+  const col = Math.floor(x / (rect.width/8));
+  const fil = Math.floor(y / (rect.height/8));
+  if(!(fil>=0 && fil<=7 && col>=0 && col<=7)) return;
+  const clic = [fil, col];
+  if(turno === "raton") clickRaton(clic);
+  else clickGatos(clic);
+  dibujar();
+}
+
+canvas.addEventListener('click', e => manejarClick(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  manejarClick(t.clientX, t.clientY);
+}, {passive:false});
+
+function clickRaton(clic){
+  const mr = movsRaton(raton, gatos);
+  if(eqPos(clic, raton)){
+    sel = {tipo:"raton", pos: raton}; validos = mr;
+  } else if(sel && incluye(validos, clic)){
+    raton = clic; sel = null; validos = [];
+    dibujar();
+    if(verificarFin()) return;
+    turno = "gatos"; actualizarLabel();
+    if(modoIA && piezaJugador === "raton") setTimeout(iaMueveGatos, 500);
+  } else {
+    sel = null; validos = [];
+  }
+}
+
+function clickGatos(clic){
+  if(incluye(gatos, clic)){
+    sel = {tipo:"gato", pos: clic}; validos = movsGato(clic, gatos, raton);
+  } else if(sel && sel.tipo === "gato" && incluye(validos, clic)){
+    const idx = indexOfPos(gatos, sel.pos);
+    gatos[idx] = clic;
+    sel = null; validos = [];
+    dibujar();
+    if(verificarFin()) return;
+    turno = "raton"; actualizarLabel();
+    if(modoIA && piezaJugador === "gatos") setTimeout(iaMueveRaton, 500);
+  } else {
+    sel = null; validos = [];
+  }
+}
+
+// ── IA ────────────────────────────────────────────────
+function iaMueveGatos(){
+  if(!juegoActivo) return;
+  const mov = iaGatos(gatos, raton, dificultad);
+  if(mov) gatos[mov[0]] = mov[1];
+  dibujar();
+  if(verificarFin()) return;
+  turno = "raton"; actualizarLabel();
+}
+
+function iaMueveRaton(){
+  if(!juegoActivo) return;
+  const dest = iaRaton(gatos, raton, dificultad);
+  if(dest) raton = dest;
+  dibujar();
+  if(verificarFin()) return;
+  turno = "gatos"; actualizarLabel();
+}
+
+// ── Fin de partida ──────────────────────────────────
+function verificarFin(){
+  const [gan] = esFin(gatos, raton);
+  if(!gan) return false;
+  if(gan === "raton"){
+    const rf = raton[0];
+    let msg;
+    if(rf === 0) msg = "¡El RATÓN llegó al final y escapó!";
+    else if(rf < Math.min(...gatos.map(g=>g[0]))) msg = "¡El RATÓN se coló entre los gatos y escapó!";
+    else msg = "¡Gatos sin movimiento! Gana el RATÓN.";
+    fin(msg, C_RATON);
+  } else {
+    fin("¡Los GATOS acorralaron al ratón!", C_GATO);
+  }
+  return true;
+}
+
+function fin(msg, color){
+  juegoActivo = false;
+  const lbl = document.getElementById('lbl-turno');
+  lbl.style.color = color;
+  lbl.textContent = msg;
+  document.getElementById('btn-nuevo').style.display = 'block';
+}
+
+window.addEventListener('resize', () => {
+  if(document.getElementById('pantalla-juego').classList.contains('activa')){
+    calcularTamano();
+    dibujar();
+  }
+});
+
+// ── Inicializar valores de menú B ────────────────────
+selPieza('raton');
+selDificultad(2);
+
+// ── Registrar Service Worker (PWA) ───────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+  </html>
+
